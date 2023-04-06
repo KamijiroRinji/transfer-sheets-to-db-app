@@ -1,0 +1,54 @@
+stages:
+  - build
+  - deploy
+
+
+variables:
+  IMAGE_PATH: ${CI_REGISTRY}/${CI_PROJECT_PATH}/${CI_COMMIT_REF_SLUG}
+  INSTANCE_NAME: $CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG
+  PRODUCTION_DOMAIN: transfer-sheets-to-db-app
+
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+
+
+build:
+  stage: build
+  script:
+    - docker-compose -f docker-compose.yml build
+    - docker-compose -f docker-compose.yml push
+
+
+deploy_prod:
+  stage: deploy
+  script:
+    - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
+    - docker stack deploy --with-registry-auth --compose-file=docker-compose.yml ${PRODUCTION_DOMAIN}
+  environment:
+    name: production
+    url: https://${PRODUCTION_DOMAIN}.transfer-sheets-to-db-app.com
+  only:
+    - master
+
+
+deploy_staging:
+  stage: deploy
+  script:
+    - docker stack deploy --with-registry-auth --compose-file=docker-compose.yml ${INSTANCE_NAME}
+  environment:
+    name: staging/$CI_COMMIT_REF_NAME
+    url: https://$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG.transfer-sheets-to-db-app.com
+    on_stop: stop_staging
+
+
+stop_staging:
+  stage: deploy
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - docker stack rm ${INSTANCE_NAME}
+  when: manual
+  environment:
+    name: staging/$CI_COMMIT_REF_NAME
+    action: stop
