@@ -1,4 +1,4 @@
-# transfer-sheets-to-db
+# transfer-sheets-to-db-app
 
 Проект для переноса заказов из гугл-таблицы в базу данных.
 
